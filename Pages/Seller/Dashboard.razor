@@ -103,10 +103,10 @@
     }
 
     private string errorMessage;
-    private void NavigateToSlots() => Navigation.NavigateTo("/slots");
-    private void NavigateToProfile() => Navigation.NavigateTo("/seller-profile");
-    private void NavigateToOrders() => Navigation.NavigateTo("/seller-orders");
-    private void NavigateToConfirm() => Navigation.NavigateTo("/seller-confirmation");
+    private void NavigateToSlots() => Navigation.NavigateTo("slots");
+    private void NavigateToProfile() => Navigation.NavigateTo("seller-profile");
+    private void NavigateToOrders() => Navigation.NavigateTo("seller-orders");
+    private void NavigateToConfirm() => Navigation.NavigateTo("seller-confirmation");
 
     SellerDashboardResponse model = new();
 
