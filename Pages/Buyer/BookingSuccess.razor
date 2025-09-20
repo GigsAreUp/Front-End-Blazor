@@ -25,7 +25,7 @@
             else
             {
                 timer?.Stop();
-                await InvokeAsync(() => Navigation.NavigateTo("/buyer-dashboard"));
+                await InvokeAsync(() => Navigation.NavigateTo("buyer-dashboard"));
             }
         };
         timer.Start();
