@@ -28,7 +28,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'  # Change this if you're using .NET 6 or 7
+          dotnet-version: '9.0.x'  # Change this if you're using .NET 6 or 7
 
       - name: Publish Blazor WebAssembly app
         run: dotnet publish -c Release -o release
