@@ -279,7 +279,7 @@
 
     private void NavigateToBooking(Guid slotId)
     {
-        Navigation.NavigateTo($"/booking/{slotId}");
+        Navigation.NavigateTo($"booking/{slotId}");
     }
 
     private Task<IEnumerable<string>> SearchTags(string value, CancellationToken token)
