@@ -1,9 +1,7 @@
-name: Deploy Blazor WASM to GitHub Pages
+name: Deploy static content to Pages
 
 on:
-  push:
-    branches: ["main"]
-  workflow_dispatch:
+  workflow_dispatch:   # Only run when manually triggered from Actions tab
 
 permissions:
   contents: read
@@ -15,28 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'  # Change this if you're using .NET 6 or 7
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      - name: Publish Blazor WebAssembly app
-        run: dotnet publish -c Release -o release
+      - name: Copy index.html to 404.html for SPA routing
+        run: |
+          # Adjust the path if your files are in a subfolder
+          cp ./index.html ./404.html
 
-      - name: Upload artifact (only wwwroot)
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: release/wwwroot
+          path: '.'  # Upload entire repository root or change to published folder if needed
 
       - name: Deploy to GitHub Pages
         id: deployment
