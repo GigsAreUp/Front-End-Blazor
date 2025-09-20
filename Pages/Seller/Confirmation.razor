@@ -1,0 +1,233 @@
+﻿@page "/seller-confirmation"
+@using System.ComponentModel.DataAnnotations
+@inject StateService State
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SELLER")]
+<div class="page slots-page">
+    <h1>All Slots</h1>
+    <div class="slots-grid">
+        @if (AllSlots == null || !AllSlots.Any())
+        {
+            <p>No slots available.</p>
+        }
+        else
+        {
+            @foreach (var slot in AllSlots.OrderBy(s => s.SlotDate).ThenBy(s => s.SlotTime))
+            {
+                <div class="slot-item">
+                    <p>@slot.SlotDate @slot.SlotTime</p>
+                    <p>₹@slot.SlotPrice</p>
+                    <button class="btn btn-danger btn-sm" @onclick="() => RejectSlot(slot.SlotId)">Delete</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => ConfirmSlot(slot.SlotId)">Confirm</button>
+                    
+                </div>
+            }
+        }
+    </div>
+    <h3>Rejected Slots</h3>
+    <div class="slots-grid">
+        @if (RejectedSlots == null || !RejectedSlots.Any())
+        {
+            <p>No slots available.</p>
+        }
+        else
+        {
+            @foreach (var slot in RejectedSlots.OrderBy(s => s.SlotDate).ThenBy(s => s.SlotTime))
+            {
+                <div class="slot-item">
+                    <p>@slot.SlotDate @slot.SlotTime</p>
+                    <p>₹@slot.SlotPrice</p>
+                    <button class="btn btn-danger btn-sm" @onclick="() => ConfirmSlot(slot.SlotId)">Confirm</button>
+
+                </div>
+            }
+        }
+    </div>
+    <h3>Confirmed Slots</h3>
+    <div class="slots-grid">
+        @if (ConfirmedSlots == null || !ConfirmedSlots.Any())
+        {
+            <p>No slots available.</p>
+        }
+        else
+        {
+            @foreach (var slot in ConfirmedSlots.OrderBy(s => s.SlotDate).ThenBy(s => s.SlotTime))
+            {
+                <div class="slot-item">
+                    <p>@slot.SlotDate @slot.SlotTime</p>
+                    <p>₹@slot.SlotPrice</p>
+                    <button class="btn btn-danger btn-sm" @onclick="() => RejectSlot(slot.SlotId)">Reject Slot</button>
+
+                </div>
+            }
+        }
+    </div>
+    <button class="btn-primary large" @onclick="SaveSlots">Save Slots</button>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">@errorMessage</div>
+    }
+</div>
+
+@code {
+    public List<SlotRequest> AllSlots { get; set; } = new();
+    private string errorMessage = string.Empty;
+    public List<SlotDetail> SlotDetails = new();
+    public List<SlotRequest> RejectedSlots { get; set; } = new();
+    public List<SlotRequest> ConfirmedSlots { get; set; } = new();
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        await FetchSlots();
+    }
+    private async Task FetchSlots()
+    {
+        try
+        {
+            //var slots = await Api.GetSlotsAsync();
+
+            var response = await Http.GetAsync("api/Seller/get-pending-cofirmation-slots");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<List<SlotResponse>>();
+
+                foreach (var s in result)
+                {
+                    var slot = new SlotRequest
+                    {
+                        SlotStatus = s.SlotStatus,
+                        SlotDate = s.SlotDate, // assuming SlotDate is string like "7 Sep 2024"
+                        SlotPrice = s.SlotPrice,
+                        SlotTime = s.SlotTime,
+                        SlotId = s.SlotId,
+                        IsNew = false
+                    };
+                    AllSlots.Add(slot);
+
+                }
+
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load slots: {ex.Message}";
+        }
+    }
+    private async Task ConfirmSlot(Guid Id)
+    {
+        var slot = SlotDetails.FirstOrDefault(s => s.Id == Id);
+        if(slot!=null)
+        {
+            slot.Status = true;
+        }
+        else
+        {
+            SlotDetails.Add(new SlotDetail
+            {
+                Id = Id,
+                Status = true
+            });
+        }
+        var cslot = ConfirmedSlots.FirstOrDefault(s => s.SlotId == Id);
+        if (cslot == null)
+        {
+            var rslot = RejectedSlots.FirstOrDefault(s => s.SlotId == Id);
+            if(rslot!=null)
+            {
+                ConfirmedSlots.Add(rslot);
+                RejectedSlots.Remove(rslot);
+            }
+            else
+            {
+                rslot = AllSlots.FirstOrDefault(s => s.SlotId == Id);
+                ConfirmedSlots.Add(rslot);
+                AllSlots.Remove(rslot);
+            }
+        }
+        StateHasChanged();
+
+    }
+    private async Task RejectSlot(Guid Id)
+    {
+        var slot = SlotDetails.FirstOrDefault(s => s.Id == Id);
+        if (slot != null)
+        {
+            slot.Status = false;
+        }
+        else
+        {
+            SlotDetails.Add(new SlotDetail
+            {
+                Id = Id,
+                Status = false
+            });
+        }
+        var cslot = RejectedSlots.FirstOrDefault(s => s.SlotId == Id);
+        if (cslot == null)
+        {
+            var rslot = ConfirmedSlots.FirstOrDefault(s => s.SlotId == Id);
+            if (rslot != null)
+            {
+                RejectedSlots.Add(rslot);
+                ConfirmedSlots.Remove(rslot);
+            }
+            else
+            {
+                rslot = AllSlots.FirstOrDefault(s => s.SlotId == Id);
+                RejectedSlots.Add(rslot);
+                AllSlots.Remove(rslot);
+            }
+        }
+    }
+    private async Task SaveSlots()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Seller/update-pending-confirmation-slots", SlotDetails);
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("seller-dashboard");
+
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save slots: {ex.Message}";
+        }
+    }
+    public class SlotRequest
+    {
+        public string SlotDate { get; set; }
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; }
+        public decimal SlotPrice { get; set; }
+        public string SlotStatus { get; set; }
+        public bool IsNew { get; set; }
+    }
+    public class SlotResponse
+    {
+        public string SlotDate { get; set; }
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; }
+        public decimal SlotPrice { get; set; }
+        public string SlotStatus { get; set; }
+    }
+    public class SlotDetail
+    {
+        public Guid Id { get; set; }
+        public bool Status { get; set; }
+    }
+    
+
+}

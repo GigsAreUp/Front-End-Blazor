@@ -1,0 +1,282 @@
+﻿@page "/user-profile"
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject StateService State
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using MudBlazor
+@implements IDisposable
+
+<div class="page user-details-page">
+    <h1>Edit User Details</h1>
+    <div class="loading-spinner @(_isLoading ? "active" : "")"></div>
+
+    <div class="user-details-section">
+        <h2>Update Personal Information</h2>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="UserDetails.Name"
+                          Label="Full Name"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Error="@string.IsNullOrWhiteSpace(UserDetails.Name)"
+                          ErrorText="Name is required" />
+        </div>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="UserDetails.Phone"
+                          Label="Phone Number"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Error="@(!IsValidPhone(UserDetails.Phone))"
+                          ErrorText="Enter a valid phone number (10 digits)" />
+        </div>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="UserDetails.UpiId"
+                          Label="UPI ID"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Error="@(!IsValidUpiId(UserDetails.UpiId))"
+                          ErrorText="Enter a valid UPI ID (e.g., name@bank)" />
+        </div>
+
+        <h2>Change Password</h2>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="PasswordDetails.CurrentPassword"
+                          Label="Current Password"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          InputType="InputType.Password"
+                          Error="@string.IsNullOrWhiteSpace(PasswordDetails.CurrentPassword)"
+                          ErrorText="Current password is required" />
+        </div>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="PasswordDetails.NewPassword"
+                          Label="New Password"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          InputType="InputType.Password"
+                          Error="@(!IsValidPassword(PasswordDetails.NewPassword))"
+                          ErrorText="Password must be at least 8 characters" />
+        </div>
+        <div class="form-group">
+            <MudTextField T="string"
+                          @bind-Value="PasswordDetails.ConfirmPassword"
+                          Label="Confirm New Password"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          InputType="InputType.Password"
+                          Error="@(PasswordDetails.NewPassword != PasswordDetails.ConfirmPassword)"
+                          ErrorText="Passwords do not match" />
+        </div>
+
+        <div class="action-buttons">
+            <MudButton OnClick="SaveDetails"
+                       Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       Class="btn-primary seller">
+                Save Changes
+            </MudButton>
+            <MudButton OnClick="ResetForm"
+                       Color="Color.Default"
+                       Variant="Variant.Outlined"
+                       Class="btn-secondary">
+                Cancel
+            </MudButton>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">@errorMessage</div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = false;
+    private string errorMessage = string.Empty;
+    private UserDetailsModel UserDetails { get; set; } = new();
+    private PasswordDetailsModel PasswordDetails { get; set; } = new();
+    private UserDetailsModel OriginalUserDetails { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.GetAsync("api/Login/user-profile");
+            if (response.IsSuccessStatusCode)
+            {
+                UserDetails = await response.Content.ReadFromJsonAsync<UserDetailsModel>() ?? new();
+                OriginalUserDetails = new UserDetailsModel
+                {
+                    Name = UserDetails.Name,
+                    Phone = UserDetails.Phone,
+                    UpiId = UserDetails.UpiId
+                };
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add(errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load user details: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private async Task SaveDetails()
+    {
+        if (!ValidateForm())
+        {
+            Snackbar.Add("Please fix the errors in the form.", Severity.Error);
+            return;
+        }
+
+        _isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Update user details
+            var userDetailsResponse = await Http.PostAsJsonAsync("api/Login/update-user-profile", UserDetails);
+            if (!userDetailsResponse.IsSuccessStatusCode)
+            {
+                errorMessage = await userDetailsResponse.Content.ReadAsStringAsync();
+                Snackbar.Add(errorMessage, Severity.Error);
+                _isLoading = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Update password if provided
+            if (!string.IsNullOrWhiteSpace(PasswordDetails.NewPassword))
+            {
+                var passwordResponse = await Http.PostAsJsonAsync("api/Login/change-password", PasswordDetails);
+                if (!passwordResponse.IsSuccessStatusCode)
+                {
+                    errorMessage = await passwordResponse.Content.ReadAsStringAsync();
+                    Snackbar.Add(errorMessage, Severity.Error);
+                    _isLoading = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            Snackbar.Add("User details updated successfully!", Severity.Success);
+            OriginalUserDetails = new UserDetailsModel
+            {
+                Name = UserDetails.Name,
+                Phone = UserDetails.Phone,
+                UpiId = UserDetails.UpiId
+            };
+            PasswordDetails = new(); // Reset password fields
+            Nav.NavigateTo("/user-profile", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save details: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ResetForm()
+    {
+        UserDetails = new UserDetailsModel
+        {
+            Name = OriginalUserDetails.Name,
+            Phone = OriginalUserDetails.Phone,
+            UpiId = OriginalUserDetails.UpiId
+        };
+        PasswordDetails = new();
+        errorMessage = string.Empty;
+        Snackbar.Add("Form reset.", Severity.Info);
+        StateHasChanged();
+    }
+
+    private bool ValidateForm()
+    {
+        bool isValid = true;
+
+        if (string.IsNullOrWhiteSpace(UserDetails.Name))
+            isValid = false;
+
+        if (!IsValidPhone(UserDetails.Phone))
+            isValid = false;
+
+        if (!IsValidUpiId(UserDetails.UpiId))
+            isValid = false;
+
+        if (!string.IsNullOrWhiteSpace(PasswordDetails.NewPassword))
+        {
+            if (!IsValidPassword(PasswordDetails.NewPassword) || PasswordDetails.NewPassword != PasswordDetails.ConfirmPassword)
+                isValid = false;
+
+            if (string.IsNullOrWhiteSpace(PasswordDetails.CurrentPassword))
+                isValid = false;
+        }
+
+        return isValid;
+    }
+
+    private bool IsValidPhone(string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{10}$");
+    }
+
+    private bool IsValidUpiId(string upiId)
+    {
+        if (string.IsNullOrWhiteSpace(upiId))
+            return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(upiId, @"^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$");
+    }
+
+    private bool IsValidPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+            return true; // Password is optional
+        return password.Length >= 8;
+    }
+
+    public class UserDetailsModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string UpiId { get; set; } = string.Empty;
+    }
+
+    public class PasswordDetailsModel
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

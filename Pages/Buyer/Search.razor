@@ -1,0 +1,326 @@
+﻿@page "/search"
+@inject StateService State
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize(Roles = "BUYER")]
+@implements IDisposable
+
+<link href="css/site.css" rel="stylesheet" />
+
+<div class="page search-page">
+    <MudText Typo="Typo.h1">Search for Sellers</MudText>
+
+    <div class="search-filters">
+        <div class="form-group">
+            <MudText Typo="Typo.body1" Class="form-group label">Search or add tags</MudText>
+            <select id="tagsSelect3" multiple="multiple" style="width:100%"></select>
+            @if (!searchModel.SelectedTags.Any())
+            {
+                <MudText Color="Color.Error" Class="text-danger">Please pick at least one tag</MudText>
+            }
+        </div>
+
+        <div class="form-group">
+            <MudAutocomplete T="string"
+                             @bind-Value="searchModel.SelectedLocations"
+                             Label="Search locations"
+                             Variant="Variant.Outlined"
+                             Dense="true"
+                             Class="location-container form-group"
+                             SearchFunc="@SearchLocations"
+                             Error="@(string.IsNullOrEmpty(searchModel.SelectedLocations))"
+                             ErrorText="Please pick at least one location" />
+        </div>
+    </div>
+
+    <div class="date-filter">
+        <MudDatePicker @bind-Date="searchModel.SearchDate"
+                       Label="Date"
+                       Placeholder="Select date"
+                       Variant="Variant.Outlined"
+                       DateFormat="yyyy-MM-dd"
+                       Required="true"
+                       RequiredError="Date is required"
+                       MinDate="@DateTime.Now"
+                       MaxDate="@DateTime.Now.AddMonths(3)"
+                       Class="form-group" />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Class="btn-primary seller full-width"
+                   Disabled="@_isLoading"
+                   OnClick="SearchSellers">
+            Search
+        </MudButton>
+    </div>
+
+    <div class="loading-spinner @(_isLoading ? "active" : "")"></div>
+
+    <div class="search-results">
+        <MudText Typo="Typo.h2">Available Sellers</MudText>
+        @if (sellers.Any())
+        {
+            @foreach (var seller in sellers)
+            {
+                <div class="seller-card">
+                    <div class="seller-info">
+                        <MudText Typo="Typo.h3">@seller.Name</MudText>
+                    </div>
+                    <div class="slots-grid">
+                        @foreach (var slot in seller.Slots)
+                        {
+                            <div class="slot-item">
+                                <MudText>@slot.Date.ToString("yyyy-MM-dd") @slot.Time</MudText>
+                                <MudText>₹@slot.Price</MudText>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Class="btn-primary seller full-width"
+                                           OnClick="() => NavigateToBooking(slot.Id)">
+                                    Book
+                                </MudButton>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <MudText Class="empty-state">No sellers found. Try adjusting your filters 🎭</MudText>
+        }
+    </div>
+
+    
+</div>
+
+@code {
+    private SearchModel searchModel = new() { SearchDate = DateTime.Today.AddDays(1) };
+    private List<Seller> sellers = new();
+    private bool _isLoading = false;
+    private string? errorMessage;
+    private List<string> AllTags { get; set; } = new();
+    private List<string> AllLocations { get; set; } = new();
+    private bool _tagsInitialized = false;
+
+    public class SearchModel
+    {
+        [Required(ErrorMessage = "Date is required")]
+        public DateTime? SearchDate { get; set; }
+        [MinLength(1, ErrorMessage = "Please pick at least one tag")]
+        public List<string> SelectedTags { get; set; } = new();
+        [Required(ErrorMessage = "Please pick at least one location")]
+        public string SelectedLocations { get; set; } = string.Empty;
+    }
+
+    public class Seller
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<Slot> Slots { get; set; } = new();
+    }
+
+    public class Slot
+    {
+        public Guid Id { get; set; }
+        public DateTime Date { get; set; }
+        public string Time { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public bool Available { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        try
+        {
+            var response = await Http.GetAsync("api/Buyer/get-tags");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TagResults>();
+                if (result?.AllTags.Any() == true)
+                {
+                    AllTags = result.AllTags;
+                    _tagsInitialized = false;
+                }
+            }
+            else
+            {
+                errorMessage = "Failed to load tags.";
+                Snackbar.Add(errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+
+        try
+        {
+            var response = await Http.GetAsync("api/Buyer/get-locations");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TagResults>();
+                if (result?.AllTags.Any() == true)
+                {
+                    AllLocations = result.AllTags;
+                }
+            }
+            else
+            {
+                errorMessage = "Failed to load locations.";
+                Snackbar.Add(errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        State.NotifyStateChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_tagsInitialized && AllTags?.Any() == true)
+        {
+            await JS.InvokeVoidAsync("initSelect2WithDataTags",
+                DotNetObjectReference.Create(this),
+                AllTags,
+                searchModel.SelectedTags);
+            _tagsInitialized = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    [JSInvokable]
+    public void OnTagsChanged(string[] selected)
+    {
+        searchModel.SelectedTags = selected?.ToList() ?? new();
+        StateHasChanged();
+    }
+
+    private async Task SearchSellers()
+    {
+        if (!searchModel.SelectedTags.Any() || string.IsNullOrWhiteSpace(searchModel.SelectedLocations) || !searchModel.SearchDate.HasValue)
+        {
+            Snackbar.Add("Please select at least one tag, one location, and a date.", Severity.Error);
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var model = new SellerSearchRequest
+            {
+                Date = searchModel.SearchDate.Value,
+                Location = searchModel.SelectedLocations,
+                Search = searchModel.SelectedTags
+            };
+            sellers.Clear();
+            var response = await Http.PostAsJsonAsync("api/Buyer/search", model);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<List<SellerSearchResponse>>();
+                if (result?.Any() == true)
+                {
+                    foreach (var item in result)
+                    {
+                        var seller = new Seller
+                        {
+                            Name = item.SellerName
+                        };
+                        foreach (var s in item.SlotResponse)
+                        {
+                            var slot = new Slot
+                            {
+                                Available = true,
+                                Date = DateTime.Parse(s.SlotDate),
+                                Price = s.SlotPrice,
+                                Time = s.SlotTime,
+                                Id = s.SlotId
+                            };
+                            seller.Slots.Add(slot);
+                        }
+                        sellers.Add(seller);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("No sellers found", Severity.Warning);
+                }
+            }
+            else
+            {
+                errorMessage = "Search failed. Please try again.";
+                Snackbar.Add(errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToBooking(Guid slotId)
+    {
+        Navigation.NavigateTo($"/booking/{slotId}");
+    }
+
+    private Task<IEnumerable<string>> SearchTags(string value, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult(AllTags.AsEnumerable());
+        return Task.FromResult(AllTags
+            .Where(x => x.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private Task<IEnumerable<string>> SearchLocations(string value, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult(AllLocations.AsEnumerable());
+        return Task.FromResult(AllLocations
+            .Where(x => x.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public class TagResults
+    {
+        public List<string> AllTags { get; set; } = new();
+    }
+
+    public class SellerSearchResponse
+    {
+        public List<SlotResponse> SlotResponse { get; set; } = new();
+        public string SellerName { get; set; } = string.Empty;
+    }
+
+    public class SlotResponse
+    {
+        public string SlotDate { get; set; } = string.Empty;
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; } = string.Empty;
+        public decimal SlotPrice { get; set; }
+    }
+
+    public class SellerSearchRequest
+    {
+        public List<string> Search { get; set; } = new();
+        public DateTime Date { get; set; }
+        public string Location { get; set; } = string.Empty;
+    }
+}

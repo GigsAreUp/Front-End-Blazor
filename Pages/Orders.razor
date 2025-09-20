@@ -1,0 +1,68 @@
+﻿@page "/orders"
+@inject StateService State
+@implements IDisposable
+
+<div class="page orders-page">
+    <h1>Orders</h1>
+    <div class="orders-container">
+        @foreach (var order in State.Orders)
+        {
+            <div class="order-card">
+                <div class="order-info">
+                    <h3>@order.Service</h3>
+                    <p>With: @order.Seller</p>
+                    <p>@order.Date · @order.Time</p>
+                    <p class="order-price">$@order.Price</p>
+                </div>
+                <div class="order-actions">
+                    <span class="status-badge @order.Status.ToLower()">@order.Status</span>
+                    
+                        <div class="action-buttons">
+                            <button class="btn-primary" @onclick="() => UpdateOrderStatus(order.Id, OrderStatus.Confirmed)">Confirm</button>
+                            <button class="btn-secondary" @onclick="() => UpdateOrderStatus(order.Id, OrderStatus.Cancelled)">Reject</button>
+                        </div>
+                    
+                    @if (order.Status == "Confirmed")
+                    {
+                        <div class="qr-section">
+                            <div class="qr-placeholder">QR Code</div>
+                            <p>Scan to confirm</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        await FetchOrders();
+    }
+    private async Task FetchOrders()
+    {
+
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private void UpdateOrderStatus(int id, OrderStatus status)
+    {
+        var order = State.Orders.FirstOrDefault(o => o.Id == id);
+        if (order != null)
+        {
+            order.Status = status.ToString();
+            State.NotifyStateChanged();
+        }
+    }
+    public enum OrderStatus
+    {
+        Confirmed,
+        Cancelled
+    }
+}

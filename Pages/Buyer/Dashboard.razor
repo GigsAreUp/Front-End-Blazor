@@ -1,0 +1,157 @@
+﻿@page "/buyer-dashboard"
+@using Microsoft.AspNetCore.Authorization
+@inject StateService State
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "BUYER")]
+@implements IDisposable
+
+
+
+<div class="page dashboard">
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+        <h2>Welcome back, @(State.User?.Name ?? "Buyer")!</h2>
+        <button @onclick="NavigateToSearch">Explore Now</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="dashboard-cards">
+        <div class="stat-card highlight">
+            <div class="stat-header">
+                <span class="icon">🎬</span>
+                <h3>Completed Shows</h3>
+            </div>
+            <svg class="progress-ring">
+                <circle class="bg" cx="30" cy="30" r="25" />
+                <circle class="fg" cx="30" cy="30" r="25" style="stroke-dashoffset: @(283 * (1 - model.CompletedShows / 50.0))" />
+            </svg>
+            <p class="stat-number">@model.CompletedShows</p>
+        </div>
+
+        <div class="stat-card highlight">
+            <div class="stat-header">
+                <span class="icon">✅</span>
+                <h3>Confirmed Bookings</h3>
+            </div>
+            <svg class="progress-ring">
+                <circle class="bg" cx="30" cy="30" r="25" />
+                <circle class="fg" cx="30" cy="30" r="25" style="stroke-dashoffset: @(283 * (1 - model.ConfirmedBookings / 50.0))" />
+            </svg>
+            <p class="stat-number">@model.ConfirmedBookings</p>
+        </div>
+
+        <div class="stat-card highlight">
+            <div class="stat-header">
+                <span class="icon">⏳</span>
+                <h3>Pending Confirmations</h3>
+            </div>
+            <svg class="progress-ring">
+                <circle class="bg" cx="30" cy="30" r="25" />
+                <circle class="fg" cx="30" cy="30" r="25" style="stroke-dashoffset: @(283 * (1 - model.PendingConfirmations / 50.0))" />
+            </svg>
+            <p class="stat-number">@model.PendingConfirmations</p>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-actions">
+        <h2>Quick Actions</h2>
+        <div class="action-buttons">
+            <button class="btn-primary large glow" @onclick="NavigateToSearch">🔍 Find Sellers</button>
+            <button class="btn-secondary large" @onclick="NavigateToOrders">📦 View My Orders</button>
+            <button class="btn-secondary large" @onclick="NavigateToScanner">📷 Open Scanner</button>
+        </div>
+    </div>
+
+    <!-- Upcoming Orders -->
+    <div class="recent-orders">
+        <h2>Upcoming Orders</h2>
+        @if (model.UpcomingShows.Any())
+        {
+            @foreach (var order in model.UpcomingShows)
+            {
+                <div class="order-item">
+                    <div>
+                        <h4>@order.SellerName</h4>
+                        <p>@order.Date · @order.Time · ₹@order.Price</p>
+                    </div>
+                    <span class="status-badge @order.SlotStatus.ToLower()">@order.SlotStatus</span>
+                </div>
+            }
+        }
+        else
+        {
+            <p class="empty-state">No upcoming orders yet 🎟️</p>
+        }
+    </div>
+
+    <!-- Recent Activity -->
+    
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        await FetchBuyerDashboard();
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private string errorMessage;
+    private void NavigateToSearch() => Navigation.NavigateTo("/search");
+    private void NavigateToOrders() => Navigation.NavigateTo("/buyer-orders");
+    private void NavigateToScanner() => Navigation.NavigateTo("/qr-scanner");
+    BuyerDashboardResponse model = new();
+
+    private async Task FetchBuyerDashboard()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/Dashboard/buyer-dashboard");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<BuyerDashboardResponse>();
+                if (result != null)
+                {
+                    model = result;
+                }
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load dashboard: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    public class BuyerDashboardResponse
+    {
+        public BuyerDashboardResponse()
+        {
+            UpcomingShows = new();
+            Errors = new();
+        }
+        public int ConfirmedBookings { get; set; }
+        public int PendingConfirmations { get; set; }
+        public int CompletedShows { get; set; }
+        public List<DashboardSlotResponse> UpcomingShows { get; set; }
+        public List<string> Errors { get; set; }
+    }
+
+    public class DashboardSlotResponse
+    {
+        public string Date { get; set; }
+        public string Time { get; set; }
+        public string SellerName { get; set; }
+        public string SlotStatus { get; set; }
+        public decimal Price { get; set; }
+    }
+}

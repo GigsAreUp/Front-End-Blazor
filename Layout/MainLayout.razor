@@ -1,0 +1,14 @@
+﻿@* MainLayout.razor *@
+@inherits LayoutComponentBase
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+
+<MudSnackbarProvider />
+<div class="app">
+    <Header />
+    <main class="main-content">
+        @Body
+    </main>
+    <Footer />
+</div>

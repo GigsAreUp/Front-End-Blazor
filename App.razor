@@ -1,0 +1,43 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@using MusicHFE2.Pages
+@inject StateService State
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated == true)
+                    {
+                        <PageTitle>Access Denied</PageTitle>
+                        <div class="access-denied" role="alert">
+                            <h2>Access Denied</h2>
+                            <p>Sorry, you don't have the required role to access this page.</p>
+                            <button class="btn-primary" @onclick="NavigateToHome">Return to Home</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, the requested page was not found.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+@code{
+    public void NavigateToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

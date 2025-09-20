@@ -1,0 +1,247 @@
+﻿@* Pages/Booking.razor *@
+@page "/booking/{bookingid}"
+@using Microsoft.AspNetCore.Authorization
+@inject StateService State
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@attribute [Authorize(Roles = "BUYER")]
+@implements IDisposable
+
+<div class="page booking-page">
+    <h1>Complete Booking</h1>
+
+    @if (SlotDetails != null)
+    {
+        <div class="booking-details">
+            <h2>Service Details</h2>
+            <div class="detail-card">
+                <p>Seller: @SlotDetails.SellerName</p>
+                <p>Date: @SlotDetails.Date</p>
+                <p>Time: @SlotDetails.Time</p>
+                <p class="price">Price: ₹@SlotDetails.Price.ToString("0.00")</p>
+                <p class="price">Transaction Fee: ₹@SlotDetails.ExtraAmount.ToString("0.00")</p>
+                <p class="price total">Total: ₹@((SlotDetails.Price + SlotDetails.ExtraAmount).ToString("0.00"))</p>
+            </div>
+        </div>
+
+        @if (!showRazorPay)
+        {
+            <button class="btn-primary large full-width" @onclick="HandleBooking" disabled="@isProcessing">
+                @if (isProcessing)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span>Processing...</span>
+                }
+                else
+                {
+                    <span>Confirm & Pay ₹@((SlotDetails.Price + SlotDetails.ExtraAmount).ToString("0.00"))</span>
+                }
+            </button>
+        }
+    }
+    else if (isLoading)
+    {
+        <p>Loading booking details...</p>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (showRazorPay && !string.IsNullOrEmpty(orderId))
+{
+    <RazorPay OrderId="@orderId"
+              Amount="@amount"
+              RazorPayKey="@razorPayKey"
+              PrefillEmail="@prefillEmail"
+              PrefillContact="@prefillContact"
+              OnPaymentSuccess="HandlePaymentSuccess"
+              OnPaymentFailed="HandlePaymentFailure"
+              AdditionalClass="btn btn-primary">
+        Pay with RazorPay
+    </RazorPay>
+}
+
+@code {
+    [Parameter]
+    public string bookingid { get; set; }
+
+    public SlotModel SlotDetails { get; set; }
+    private string errorMessage;
+    private bool showRazorPay = false;
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string orderId = string.Empty;
+    private decimal amount = 0m;
+    private string razorPayKey = string.Empty;
+    private string prefillEmail = "user@example.com"; // Get from user state
+    private string prefillContact = "0000000000"; // Get from user state
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        await FetchSlot();
+    }
+
+    public async Task FetchSlot()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = await Http.GetAsync($"api/Buyer/get-slot?slotId={bookingid}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<SlotModel>();
+                if (result != null)
+                {
+                    SlotDetails = result;
+                }
+                else
+                {
+                    errorMessage = "Failed to parse slot details";
+                }
+            }
+            else
+            {
+                errorMessage = $"Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load slot details: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private async Task HandleBooking()
+    {
+        isProcessing = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = await Http.GetAsync($"api/Booking/trigger-booking?bookingId={bookingid}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<BookingResponse>();
+
+                if (result != null && result.Success)
+                {
+                    orderId = result.OrderId;
+                    amount = SlotDetails.Price + SlotDetails.ExtraAmount;
+                    razorPayKey = result.RazorPayKey;
+                    showRazorPay = true;
+                }
+                else
+                {
+                    errorMessage = result?.Errors != null ? string.Join(", ", result.Errors) : "Failed to create booking";
+                }
+            }
+            else
+            {
+                errorMessage = $"Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to process booking: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandlePaymentSuccess(PaymentSuccessEventArgs args)
+    {
+        try
+        {
+            //Verify payment with your backend
+            var verificationResponse = await Http.PostAsJsonAsync("/api/Booking/save-payment", new
+            {
+                OrderId = args.OrderId,
+                PaymentId = args.PaymentId,
+                Signature = args.Signature
+            });
+
+            if (verificationResponse.IsSuccessStatusCode)
+            {
+                var verificationResult = await verificationResponse.Content.ReadFromJsonAsync<SavePaymentResponse>();
+
+                if (verificationResult?.Success == true)
+                {
+                    // Redirect to success page
+                    Navigation.NavigateTo($"/booking-success");
+                }
+                else
+                {
+                    errorMessage = $"Payment verification failed: {verificationResult.Error}";
+                    showRazorPay = false;
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                errorMessage = "Payment verification API Error";
+                showRazorPay = false;
+                StateHasChanged();
+            }
+            //errorMessage = $"Successful Implementation: {args}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Payment verification error: {ex.Message}";
+            showRazorPay = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandlePaymentFailure(PaymentFailedEventArgs args)
+    {
+        errorMessage = $"Payment failed: {args.Error}";
+        showRazorPay = false; // Allow user to try again
+        StateHasChanged();
+    }
+
+    public class SlotModel
+    {
+        public string SellerName { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string Time { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public decimal ExtraAmount { get; set; }
+    }
+
+    public class BookingResponse
+    {
+        public bool Success { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+        public string OrderId { get; set; } = string.Empty;
+        public string RazorPayKey { get; set; } = string.Empty;
+    }
+
+    public class SavePaymentResponse
+    {
+        
+        public bool Success { get; set; }
+        public string Error { get; set; }
+    }
+}

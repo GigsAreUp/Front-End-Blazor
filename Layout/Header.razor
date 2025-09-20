@@ -1,0 +1,86 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject StateService State
+@inject AuthService Auth
+@inject JwtAuthStateProvider Auth2
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<header class="header">
+    <div class="container">
+        <div class="logo" @onclick="NavigateToHome">
+            <img src="/images/1758095727144.jpg"
+                 alt="Logo"
+                 class="logo-image" />
+            <h2 class="logo-text">Local Gigster</h2>
+        </div>
+
+        <nav class="nav">
+            <AuthorizeView>
+                <Authorized>
+                    @if (context.User?.IsInRole("BUYER") == true)
+                    {
+                        <button class="nav-link authorized buyer" @onclick="NavigateToBuyerDashboard">Dashboard</button>
+                        <button class="nav-link authorized buyer" @onclick="NavigateToSearch">Search</button>
+                        <button class="nav-link authorized buyer" @onclick="NavigateToBuyerOrders">Orders</button>
+                        <button class="nav-link authorized buyer" @onclick="NavigateToUserProdile">Profile</button>
+                    }
+                    else if (context.User?.IsInRole("SELLER") == true)
+                    {
+                        <button class="nav-link authorized seller" @onclick="NavigateToSellerDashboard">Dashboard</button>
+                        <button class="nav-link authorized seller" @onclick="NavigateToProfile">Tags</button>
+                        <button class="nav-link authorized seller" @onclick="NavigateToSlots">Slots</button>
+                        <button class="nav-link authorized seller" @onclick="NavigateToSellerOrders">Orders</button>
+                        <button class="nav-link authorized seller" @onclick="NavigateToUserProdile">Profile</button>
+                    }
+                    <button class="nav-link authorized buyer" @onclick="Logout">Logout</button>
+                </Authorized>
+                <NotAuthorized>
+                    <button class="nav-link" @onclick="NavigateToLogin">Login</button>
+                    <button class="nav-link" @onclick="NavigateToRegister">Register</button>
+                </NotAuthorized>
+            </AuthorizeView>
+        </nav>
+    </div>
+</header>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+
+        if (State.User == null)
+        {
+            var tokenValid = await Auth.IsTokenValidAsync();
+            if (tokenValid)
+            {
+                var token = await Auth.GetTokenAsync();
+                State.SetUser(await Auth.GetUserfromJWT(token));
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private void NavigateToHome() => Navigation.NavigateTo("/");
+    private void NavigateToBuyerDashboard() => Navigation.NavigateTo("/buyer-dashboard");
+    private void NavigateToSellerDashboard() => Navigation.NavigateTo("/seller-dashboard");
+    private void NavigateToSearch() => Navigation.NavigateTo("/search");
+    private void NavigateToProfile() => Navigation.NavigateTo("/seller-profile");
+    private void NavigateToSlots() => Navigation.NavigateTo("/slots");
+    private void NavigateToOrders() => Navigation.NavigateTo("/orders");
+    private void NavigateToBuyerOrders() => Navigation.NavigateTo("/buyer-orders");
+    private void NavigateToSellerOrders() => Navigation.NavigateTo("/seller-orders");
+    private void NavigateToLogin() => Navigation.NavigateTo("/login");
+    private void NavigateToRegister() => Navigation.NavigateTo("/register");
+    private void NavigateToUserProdile() => Navigation.NavigateTo("/user-profile");
+
+    private async Task Logout()
+    {
+        await Auth2.MarkUserAsLoggedOut();
+        State.SetUser(null);
+        Navigation.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,67 @@
+﻿@page "/"
+@inject StateService State
+@inject NavigationManager Navigation
+@inject JwtAuthStateProvider Auth2
+@implements IDisposable
+
+
+<div class="page home-page">
+    <div class="hero">
+        <h1>Connect Buyers and Sellers</h1>
+        <p>Discover and book local services with ease on our platform</p>
+        <div class="cta-buttons">
+            <button class="btn-primary buyer btn-large" @onclick="JoinAsBuyer">Join as Buyer</button>
+            <button class="btn-primary seller btn-large" @onclick="JoinAsSeller">Join as Seller</button>
+        </div>
+    </div>
+    <div class="features">
+        <h2>How It Works</h2>
+        <div class="features-grid">
+            <div class="feature-card buyer">
+                <h3>For Buyers</h3>
+                <p>Search for trusted services, book convenient slots, and pay securely.</p>
+            </div>
+            <div class="feature-card seller">
+                <h3>For Sellers</h3>
+                <p>Create a professional profile, manage your availability, and grow your business.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        var role = await Auth2.GetUserRole();
+        if (role != null)
+        {
+            if (role == "BUYER")
+            {
+                NavigateToBuyerDashboard();
+            }
+            else if (role == "SELLER")
+            {
+                NavigateToSellerDashboard();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private void JoinAsBuyer()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
+    private void JoinAsSeller()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
+    private void NavigateToBuyerDashboard() => Navigation.NavigateTo("/buyer-dashboard");
+    private void NavigateToSellerDashboard() => Navigation.NavigateTo("/seller-dashboard");
+}

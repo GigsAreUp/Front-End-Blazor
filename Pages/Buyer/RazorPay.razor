@@ -1,0 +1,104 @@
+﻿@using Microsoft.AspNetCore.Components
+@inject IRazorPayService RazorPayService
+
+<button @onclick="InitiatePayment" 
+        class="razorpay-button @AdditionalClass" 
+        disabled="@IsProcessing"
+        @attributes="AdditionalAttributes">
+    @if (IsProcessing)
+    {
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true">Processing...</span>
+        
+    }
+    else
+    {
+        @ChildContent
+    }
+</button>
+
+@code {
+    [Parameter] public string OrderId { get; set; } = string.Empty;
+    [Parameter] public decimal Amount { get; set; }
+    [Parameter] public string Currency { get; set; } = "INR";
+    [Parameter] public string Name { get; set; } = "Your Company";
+    [Parameter] public string Description { get; set; } = "Product Purchase";
+    [Parameter] public string PrefillEmail { get; set; } = string.Empty;
+    [Parameter] public string PrefillContact { get; set; } = string.Empty;
+    [Parameter] public string ThemeColor { get; set; } = "#F37254";
+    [Parameter] public string RazorPayKey { get; set; } = string.Empty;
+    [Parameter] public RenderFragment ChildContent { get; set; } = @<text>Pay Now</text>;
+    [Parameter] public string AdditionalClass { get; set; } = string.Empty;
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object> AdditionalAttributes { get; set; } = new();
+    [Parameter] public EventCallback<PaymentSuccessEventArgs> OnPaymentSuccess { get; set; }
+    [Parameter] public EventCallback<PaymentFailedEventArgs> OnPaymentFailed { get; set; }
+
+    private bool IsProcessing { get; set; } = false;
+    private bool _isInitialized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize RazorPay service
+        await RazorPayService.InitializeAsync(RazorPayKey);
+        
+        // Subscribe to events
+        RazorPayService.OnPaymentSuccess += HandleRazorPaySuccess;
+        RazorPayService.OnPaymentFailed += HandleRazorPayFailure;
+        
+        _isInitialized = true;
+    }
+
+    private async Task InitiatePayment()
+    {
+        if (string.IsNullOrEmpty(OrderId) || string.IsNullOrEmpty(RazorPayKey))
+        {
+            Console.WriteLine("OrderId or RazorPayKey is missing");
+            return;
+        }
+
+        IsProcessing = true;
+        
+        try
+        {
+            await RazorPayService.CreatePaymentAsync(
+                OrderId,
+                Amount,
+                Currency,
+                Name,
+                Description,
+                PrefillEmail,
+                PrefillContact,
+                ThemeColor,
+                RazorPayKey
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Payment initiation failed: {ex.Message}");
+            await OnPaymentFailed.InvokeAsync(new PaymentFailedEventArgs 
+            { 
+                Error = ex.Message 
+            });
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async void HandleRazorPaySuccess(object sender, PaymentSuccessEventArgs e)
+    {
+        await OnPaymentSuccess.InvokeAsync(e);
+    }
+
+    private async void HandleRazorPayFailure(object sender, PaymentFailedEventArgs e)
+    {
+        await OnPaymentFailed.InvokeAsync(e);
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from events to prevent memory leaks
+        RazorPayService.OnPaymentSuccess -= HandleRazorPaySuccess;
+        RazorPayService.OnPaymentFailed -= HandleRazorPayFailure;
+    }
+}

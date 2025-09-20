@@ -1,0 +1,90 @@
+﻿@page "/buyer-orders"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "BUYER")]
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+<h3 class="mb-3">My Orders</h3>
+
+@if (OrderDetails == null)
+{
+    <p>Loading orders...</p>
+}
+else if (!OrderDetails.Any())
+{
+    <p>No orders found.</p>
+}
+else
+{
+    <div class="orders-container">
+        @foreach (var order in OrderDetails)
+        {
+            <div class="order-card">
+                <h5>Order</h5>
+                <p><strong>Status:</strong> @order.Status</p>
+                <p><strong>Total:</strong> $@order.Total</p>
+
+                <div class="sellers-container">
+                    @foreach (var seller in order.Slots)
+                    {
+                        <div class="seller-card">
+                            <h6>Seller: @seller.SellerName</h6>
+
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th>Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var slot in seller.SlotResponse)
+                                    {
+                                        <tr>
+                                            <td>@slot.SlotDate</td>
+                                            <td>@slot.SlotTime</td>
+                                            <td>$@slot.SlotPrice</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<BuyerOrderDetails>? OrderDetails;
+
+    protected override async Task OnInitializedAsync()
+    {
+        OrderDetails = await Http.GetFromJsonAsync<List<BuyerOrderDetails>>("api/Buyer/get-orders");
+    }
+    public class BuyerOrderDetails
+    {
+        public decimal Total { get; set; }
+        public string Status { get; set; }
+        public List<SellerSearchResponse> Slots { get; set; }
+    }
+    public class SellerSearchResponse
+    {
+        public SellerSearchResponse()
+        {
+            SlotResponse = new();
+        }
+        public List<SlotResponse> SlotResponse { get; set; }
+        public string SellerName { get; set; }
+    }
+    public class SlotResponse
+    {
+        public string SlotDate { get; set; }
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; }
+        public decimal SlotPrice { get; set; }
+    }
+}

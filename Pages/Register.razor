@@ -1,0 +1,196 @@
+﻿@page "/register"
+@inject StateService State
+@inject JwtAuthStateProvider Auth2
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+@implements IDisposable
+
+
+<div class="page auth-page">
+    <div class="loading-spinner @(_isLoading ? "active" : "")"></div>
+    <div class="auth-container">
+        <MudText Typo="Typo.h2">Register</MudText>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="my-2 error-message">@errorMessage</MudAlert>
+        }
+        <EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+            <MudTextField @bind-Value="registerModel.FullName"
+                          Label="Name"
+                          Placeholder="Enter full name"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Name is required"
+                          Class="form-group" />
+            <MudTextField @bind-Value="registerModel.Email"
+                          Label="Email"
+                          Placeholder="Enter email"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Email"
+                          Required="true"
+                          RequiredError="Email is required"
+                          Validation="@(new EmailAddressAttribute() { ErrorMessage = "Invalid email format" })"
+                          Class="form-group" />
+            <MudTextField @bind-Value="registerModel.Password"
+                          Label="Password"
+                          Placeholder="Enter password"
+                          Variant="Variant.Outlined"
+                          InputType="@(showPassword? InputType.Text: InputType.Password)"
+                          Required="true"
+                          RequiredError="Password is required"
+                          Validation="@(new RegularExpressionAttribute(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).+$") { ErrorMessage = "Password must contain at least one uppercase, one lowercase, and one special character" })"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(showPassword? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          AdornmentColor="Color.Primary"
+                          OnAdornmentClick="TogglePassword"
+                          Class="form-group" />
+            <MudTextField @bind-Value="registerModel.Mobile"
+                          Label="Mobile"
+                          Placeholder="Enter mobile"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Telephone"
+                          Required="true"
+                          RequiredError="Mobile is required"
+                          Validation="@(new StringLengthAttribute(15) { MinimumLength = 6, ErrorMessage = "Mobile must be between 6 and 15 digits" })"
+                          Class="form-group" />
+            <MudField Label="Account Type" Variant="Variant.Outlined" Class="form-group">
+                <div class="toggle-container">
+                    <input type="checkbox" id="accountToggle" @bind="isSeller" />
+                    <label for="accountToggle" class="slider-label">
+                        <span class="slider-text buyer">Buyer</span>
+                        <span class="slider-text seller">Seller</span>
+                        <span class="slider-thumb"></span>
+                    </label>
+                </div>
+            </MudField>
+            <div class="action-buttons">
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="btn-primary seller full-width">
+                    Register
+                </MudButton>
+            </div>
+        </EditForm>
+        <p class="auth-switch">
+            Have an account? <span @onclick="NavigateToLogin">Login</span>
+        </p>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string? errorMessage;
+    private bool isSeller;
+    private bool showPassword = false;
+    private bool _isLoading = false;
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+        StateHasChanged();
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Name is required")]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).+$",
+            ErrorMessage = "Password must contain at least one uppercase, one lowercase, and one special character")]
+        public string Password { get; set; } = string.Empty;
+
+        public string Type { get; set; } = "BUYER";
+
+        [Required(ErrorMessage = "Mobile is required")]
+        [StringLength(15, MinimumLength = 6, ErrorMessage = "Mobile must be between 6 and 15 digits")]
+        public string Mobile { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        // Check for role query parameter
+        var uri = new Uri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var role = query.Get("role");
+        isSeller = role?.ToLower() == "seller";
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private async Task HandleRegister()
+    {
+        _isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            registerModel.Type = isSeller ? "SELLER" : "BUYER";
+            Http.DefaultRequestHeaders.Authorization = null;
+            var response = await Http.PostAsJsonAsync("api/Register", registerModel);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+                if (result.Success)
+                {
+                    await Auth2.MarkUserAsAuthenticated(result.Response);
+                    var role = await Auth2.GetUserRole();
+                    if (role == "BUYER")
+                    {
+                        Navigation.NavigateTo("/buyer-dashboard");
+                    }
+                    else if (role == "SELLER")
+                    {
+                        Navigation.NavigateTo("/seller-dashboard");
+                    }
+                    else
+                    {
+                        Navigation.NavigateTo("/");
+                    }
+                }
+                else
+                {
+                    errorMessage = result.Message ?? "Registration failed.";
+                }
+            }
+            else
+            {
+                errorMessage = "Registration failed. Email may already be in use.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            State.NotifyStateChanged();
+        }
+    }
+
+    private void NavigateToLogin() => Navigation.NavigateTo("/login");
+
+    public class RegisterResponse
+    {
+        public string Response { get; set; } = string.Empty;
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+    }
+}

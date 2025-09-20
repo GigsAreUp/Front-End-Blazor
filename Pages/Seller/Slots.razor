@@ -1,0 +1,302 @@
+﻿@page "/slots"
+@using System.ComponentModel.DataAnnotations
+@inject StateService State
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SELLER")]
+@implements IDisposable
+@inject IJSRuntime JS
+
+<div class="page slots-page">
+    <h1>Manage Slots</h1>
+
+    <!-- Bulk Add Slot Section -->
+    <div class="slot-form">
+        <EditForm Model="bulkSlotModel" OnValidSubmit="AddBulkSlots">
+            <DataAnnotationsValidator />
+            <ValidationSummary Class="my-2 text-danger" />
+
+            <MudDatePicker @bind-Date="bulkSlotModel.StartDate"
+                           Label="Date"
+                           Placeholder="Select date"
+                           Variant="Variant.Outlined"
+                           DateFormat="yyyy-MM-dd"
+                           Required="true"
+                           RequiredError="Date is required"
+                           MinDate="@DateTime.Now"
+                           MaxDate="@DateTime.Now.AddMonths(3)"
+                           Class="form-group" />
+            <div class="form-group">
+                <label class="mud-input-label">Times</label>
+                <div class="custom-checkbox-group">
+                    @foreach (var time in availableTimes)
+                    {
+                        <div class="custom-checkbox">
+                            <input type="checkbox"
+                                   id="@($"time-{time}")"
+                                   checked="@(bulkSlotModel.Times.Contains(time))"
+                                   @onchange="@(args => HandleCheckboxChange(time, args.Value))" />
+                            <label for="@($"time-{time}")">@time</label>
+                        </div>
+                    }
+                </div>
+                <ValidationMessage For="@(() => bulkSlotModel.Times)" />
+            </div>
+            <MudTextField T="decimal"
+                          @bind-Value="bulkSlotModel.Price"
+                          Label="Price"
+                          Placeholder="Enter price"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Number"
+                          Format="F2"
+                          Required="true"
+                          RequiredError="Price is required"
+                          Class="form-group" />
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Class="full-width mt-2">
+                Add Bulk Slots
+            </MudButton>
+        </EditForm>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner @(_isLoading ? "active" : "")"></div>
+
+    <!-- Slots List -->
+    <div class="slots-grid">
+        @if (AllSlots == null || !AllSlots.Any())
+        {
+            <p class="empty-state">No slots available.</p>
+        }
+        else
+        {
+            @foreach (var slot in AllSlots.OrderBy(s => s.SlotDate).ThenBy(s => s.SlotTime))
+            {
+                <div class="slot-item">
+                    <p>@slot.SlotDate @slot.SlotTime</p>
+                    <p>₹@slot.SlotPrice</p>
+                    <span class="availability @(slot.SlotStatus == "Open" ? "available" : "booked")">
+                        @(slot.SlotStatus == "Open" ? "Available" : "Booked")
+                    </span>
+                    @if (slot.SlotStatus == "Open")
+                    {
+                        <button class="btn-danger btn-sm" @onclick="() => DeleteSlot(slot.SlotId)">Delete</button>
+                    }
+                </div>
+            }
+        }
+    </div>
+    <button class="btn-primary seller large" @onclick="SaveSlots">Save Slots</button>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">@errorMessage</div>
+    }
+</div>
+
+@code {
+    private BulkSlotModel bulkSlotModel = new();
+    private string errorMessage = string.Empty;
+    private bool _isLoading = false;
+    public List<SlotRequest> AllSlots { get; set; } = new();
+    public List<string> availableTimes { get; set; } = new() { "Morning", "Evening" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateHasChanged;
+        await FetchSlots();
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+
+    private async Task FetchSlots()
+    {
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var response = await Http.GetAsync("api/Seller/get-slots");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<List<SlotResponse>>();
+                AllSlots.Clear();
+                foreach (var s in result)
+                {
+                    var slot = new SlotRequest
+                    {
+                        SlotStatus = s.SlotStatus,
+                        SlotDate = s.SlotDate,
+                        SlotPrice = s.SlotPrice,
+                        SlotTime = s.SlotTime,
+                        SlotId = s.SlotId,
+                        IsNew = false
+                    };
+                    AllSlots.Add(slot);
+                }
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load slots: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddBulkSlots()
+    {
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var startDateString = bulkSlotModel.StartDate.Value.ToString("dd/MM/yyyy");
+            var matchingSlots = AllSlots.Where(s => s.SlotDate == startDateString).ToList();
+            if (matchingSlots.Any())
+            {
+                var exactMatch = matchingSlots.Any(m => bulkSlotModel.Times.Contains(m.SlotTime));
+                if (exactMatch)
+                {
+                    errorMessage = "Slot with that date and time already exists";
+                    _isLoading = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            var newSlots = new List<SlotRequest>();
+            var currentDate = bulkSlotModel.StartDate;
+
+            foreach (var time in bulkSlotModel.Times)
+            {
+                newSlots.Add(new SlotRequest
+                {
+                    SlotId = Guid.NewGuid(),
+                    SlotDate = currentDate.Value.ToString("dd/MM/yyyy"),
+                    SlotTime = time,
+                    SlotPrice = bulkSlotModel.Price,
+                    SlotStatus = "Open",
+                    IsNew = true
+                });
+            }
+
+            AllSlots.AddRange(newSlots);
+            bulkSlotModel = new();
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add slots: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleCheckboxChange(string time, object checkedValue)
+    {
+        if ((bool)checkedValue)
+        {
+            if (!bulkSlotModel.Times.Contains(time))
+                bulkSlotModel.Times.Add(time);
+        }
+        else
+        {
+            bulkSlotModel.Times.Remove(time);
+        }
+        StateHasChanged();
+    }
+
+    private async Task DeleteSlot(Guid id)
+    {
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var delSlot = AllSlots.Find(s => s.SlotId == id);
+            AllSlots.Remove(delSlot);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete slot: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveSlots()
+    {
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Seller/save-slots", AllSlots);
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/seller-dashboard");
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save slots: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private class BulkSlotModel
+    {
+        [Required(ErrorMessage = "Date is required")]
+        public DateTime? StartDate { get; set; }
+
+        [Required(ErrorMessage = "At least one time slot is required")]
+        public List<string> Times { get; set; } = new() { "Morning" };
+
+        [Required(ErrorMessage = "Price is required")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+        public decimal Price { get; set; } = 50;
+    }
+
+    public class SlotResponse
+    {
+        public string SlotDate { get; set; }
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; }
+        public decimal SlotPrice { get; set; }
+        public string SlotStatus { get; set; }
+    }
+
+    public class SlotRequest
+    {
+        public string SlotDate { get; set; }
+        public Guid SlotId { get; set; }
+        public string SlotTime { get; set; }
+        public decimal SlotPrice { get; set; }
+        public string SlotStatus { get; set; }
+        public bool IsNew { get; set; }
+    }
+}

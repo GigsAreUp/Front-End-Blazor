@@ -1,0 +1,38 @@
+﻿@page "/booking-success"
+@inject NavigationManager Navigation
+
+<PageTitle>Booking Success</PageTitle>
+
+<div class="success-container">
+    <h2>🎉 Thank you for your booking!</h2>
+    <p>You will be redirected to the dashboard in <strong>@countdown</strong> seconds...</p>
+</div>
+
+@code {
+    private int countdown = 3;
+    private System.Timers.Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        timer = new System.Timers.Timer(1000); // 1 second interval
+        timer.Elapsed += async (_, __) =>
+        {
+            if (countdown > 1)
+            {
+                countdown--;
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                timer?.Stop();
+                await InvokeAsync(() => Navigation.NavigateTo("/buyer-dashboard"));
+            }
+        };
+        timer.Start();
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

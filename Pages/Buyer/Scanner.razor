@@ -1,0 +1,150 @@
+﻿@page "/qr-scanner"
+@* @attribute [Authorize(Roles = "BUYER")] *@
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject JwtAuthStateProvider Auth2
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+@inject ISnackbar snackbar
+
+<div class="page qr-scanner-page">
+    <div class="scanner-section">
+        <MudText Typo="Typo.h2">Scan QR Code</MudText>
+        @if (errorMessage != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="my-2">@errorMessage</MudAlert>
+        }
+        <div class="form-group">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       Class="toggle-button"
+                       OnClick="ToggleMode">
+                @(useScanner ? "Use Text Input" : "Use QR Scanner")
+            </MudButton>
+        </div>
+            @if (useScanner)
+            {
+                <div class="form-group">
+                    <canvas id="qrCanvas" class="qr-canvas"></canvas>
+                </div>
+            }
+            else
+            {
+                <MudTextField @bind-Value="qrCodeData"
+                              Label="QR Code Data"
+                              Placeholder="Enter QR code data"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="QR code data is required"
+                              Class="form-group narrow-input" />
+            }
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Class="full-width mt-2"
+                       OnClick="SubmitQRCode">
+                Submit
+            </MudButton>
+    </div>
+</div>
+
+@code {
+    private bool useScanner = true;
+    private string? qrCodeData;
+    private string? errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && useScanner)
+        {
+            await StartScanner();
+        }
+    }
+    private async Task ToggleMode()
+    {
+        useScanner = !useScanner;
+        if (useScanner)
+        {
+            await Task.Yield();
+            await StartScanner();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("qrScanner.start");
+        }
+        StateHasChanged();
+    }
+
+    private async Task StartScanner()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("qrScanner.start", "qrCanvas", DotNetObjectReference.Create(this));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to start scanner: {ex.Message}";
+            useScanner = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnQRCodeScanned(string data)
+    {
+        qrCodeData = data;
+        errorMessage = null;
+        useScanner = false; // Switch to text input after scan
+        await SubmitQRCode();
+        StateHasChanged();
+    }
+
+    private async Task SubmitQRCode()
+    {
+        if (string.IsNullOrEmpty(qrCodeData))
+        {
+            errorMessage = "QR code data is required.";
+            return;
+        }
+
+        try
+        {
+            errorMessage = null;
+            var response = await Http.PostAsJsonAsync("api/buyer/scan-qr", qrCodeData );
+            Console.WriteLine($"Response Status: {response.StatusCode}");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<QRScanResponse>();
+                if (result.Success)
+                {
+                    snackbar.Add("Thank you for using Local Gigster, your request has been processed", Severity.Success);
+                    //Navigation.NavigateTo("/buyer-dashboard", true);
+                }
+                else
+                {
+                    //errorMessage = result.Message ?? "Failed to process QR code.";
+                    snackbar.Add(result.Message??"Invalid QR Code", Severity.Error);
+                }
+            }
+            else
+            {
+                //errorMessage = $"Failed to process QR code. Status: {response.StatusCode}. Reason: {await response.Content.ReadAsStringAsync()}";
+                snackbar.Add($"Failed to process QR code. Status: {response.StatusCode}. Reason: {await response.Content.ReadAsStringAsync()}" ?? "Invalid QR Code", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            //errorMessage = $"Error: {ex.Message}";
+            snackbar.Add($"Error: {ex.Message}" ?? "Invalid QR Code", Severity.Error);
+            //Console.WriteLine($"Exception in SubmitQRCode: {ex}");
+        }
+        StateHasChanged();
+    }
+
+    public class QRScanResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+    }
+}

@@ -1,0 +1,119 @@
+﻿@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+<link href="css/site.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet" />
+
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-logo" @onclick="NavigateToHome">
+            <img src="/images/1758095727144.jpg" alt="LocalGigster Logo" />
+            <span>LocalGigster</span>
+        </div>
+        @* <div class="footer-links">
+            <h4>Explore</h4>
+            <a href="/" @onclick:preventDefault @onclick="NavigateToHome">Home</a>
+            <a href="/about" @onclick:preventDefault @onclick="NavigateToHome">About</a>
+            <a href="/contact" @onclick:preventDefault @onclick="NavigateToHome">Contact</a>
+            <a href="/privacy" @onclick:preventDefault @onclick="NavigateToHome">Privacy Policy</a>
+        </div> *@
+        <div class="footer-social">
+            <h4>Follow Us</h4>
+            <div class="social-icons">
+                <a href="https://twitter.com" target="_blank" class="social-icon"><i class="fab fa-x-twitter"></i></a>
+                <a href="https://facebook.com" target="_blank" class="social-icon"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://instagram.com" target="_blank" class="social-icon"><i class="fab fa-instagram"></i></a>
+                <a href="https://linkedin.com" target="_blank" class="social-icon"><i class="fab fa-linkedin-in"></i></a>
+            </div>
+        </div>
+        @* <div class="footer-newsletter">
+            <h4>Stay Updated</h4>
+            <EditForm Model="newsletterModel" OnValidSubmit="HandleNewsletterSignup">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <MudTextField @bind-Value="newsletterModel.Email"
+                                  Label="Email"
+                                  Placeholder="Enter your email"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  RequiredError="Email is required"
+                                  Validation="@(new EmailAddressAttribute() { ErrorMessage = "Invalid email format" })" />
+                </div>
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="btn-primary seller full-width"
+                           Disabled="@_isLoading">
+                    Subscribe
+                </MudButton>
+                @if (!string.IsNullOrEmpty(newsletterMessage))
+                {
+                    <MudAlert Severity="@newsletterMessageSeverity" Class="my-2 error-message">@newsletterMessage</MudAlert>
+                }
+            </EditForm>
+        </div> *@
+    </div>
+    <p class="footer-copyright">&copy; <span @ref="copyrightYearElement">2025</span> LocalGigster. All rights reserved.</p>
+</footer>
+
+@code {
+    private NewsletterModel newsletterModel = new();
+    private string? newsletterMessage;
+    private Severity newsletterMessageSeverity = Severity.Success;
+    private bool _isLoading = false;
+    private ElementReference copyrightYearElement;
+
+    public class NewsletterModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await UpdateCopyrightYear();
+        }
+    }
+
+    private async Task UpdateCopyrightYear()
+    {
+        var year = await JS.InvokeAsync<string>("eval", "new Date().getFullYear()");
+        await JS.InvokeVoidAsync("eval", $"document.querySelector('{copyrightYearElement.Id}').textContent = '{year}'");
+    }
+
+    private async Task HandleNewsletterSignup()
+    {
+        _isLoading = true;
+        newsletterMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Placeholder: Replace with actual API call
+            await Task.Delay(1000); // Simulate API call
+            newsletterMessage = "Thank you for subscribing!";
+            newsletterMessageSeverity = Severity.Success;
+        }
+        catch (Exception ex)
+        {
+            newsletterMessage = $"Error: {ex.Message}";
+            newsletterMessageSeverity = Severity.Error;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToHome() => Navigation.NavigateTo("/");
+    // private void NavigateToAbout() => Navigation.NavigateTo("/about");
+    // private void NavigateToContact() => Navigation.NavigateTo("/contact");
+    // private void NavigateToPrivacy() => Navigation.NavigateTo("/privacy");
+}
