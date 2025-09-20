@@ -28,7 +28,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'  # Update as needed
+          dotnet-version: '9.0.x'  # Update as needed
 
       # 3. Publish the Blazor WASM app to the 'release' folder
       - name: Publish Blazor WebAssembly app
