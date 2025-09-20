@@ -19,7 +19,7 @@ namespace MusicHFE2
             builder.Services.AddScoped<JwtAuthStateProvider>();
             builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JwtAuthStateProvider>());
             builder.Services.AddAuthorizationCore();
-            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://ee11908135cf.ngrok-free.app/") });
+            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://6a9077c1bcaa.ngrok-free.app/") });
             //builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
             builder.Services.AddScoped<IRazorPayService, RazorPayService>();
             await builder.Build().RunAsync();
