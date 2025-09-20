@@ -102,9 +102,9 @@
     }
 
     private string errorMessage;
-    private void NavigateToSearch() => Navigation.NavigateTo("/search");
-    private void NavigateToOrders() => Navigation.NavigateTo("/buyer-orders");
-    private void NavigateToScanner() => Navigation.NavigateTo("/qr-scanner");
+    private void NavigateToSearch() => Navigation.NavigateTo("search");
+    private void NavigateToOrders() => Navigation.NavigateTo("buyer-orders");
+    private void NavigateToScanner() => Navigation.NavigateTo("qr-scanner");
     BuyerDashboardResponse model = new();
 
     private async Task FetchBuyerDashboard()
