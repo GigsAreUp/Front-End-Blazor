@@ -14,7 +14,13 @@
             <h2 class="logo-text">Local Gigster</h2>
         </div>
 
-        <nav class="nav">
+        <button class="hamburger" @onclick="ToggleMenu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <nav class="nav @(IsMenuOpen ? "active" : "")">
             <AuthorizeView>
                 <Authorized>
                     @if (context.User?.IsInRole("BUYER") == true)
@@ -22,7 +28,7 @@
                         <button class="nav-link authorized buyer" @onclick="NavigateToBuyerDashboard">Dashboard</button>
                         <button class="nav-link authorized buyer" @onclick="NavigateToSearch">Search</button>
                         <button class="nav-link authorized buyer" @onclick="NavigateToBuyerOrders">Orders</button>
-                        <button class="nav-link authorized buyer" @onclick="NavigateToUserProdile">Profile</button>
+                        <button class="nav-link authorized buyer" @onclick="NavigateToUserProfile">Profile</button>
                     }
                     else if (context.User?.IsInRole("SELLER") == true)
                     {
@@ -30,7 +36,7 @@
                         <button class="nav-link authorized seller" @onclick="NavigateToProfile">Tags</button>
                         <button class="nav-link authorized seller" @onclick="NavigateToSlots">Slots</button>
                         <button class="nav-link authorized seller" @onclick="NavigateToSellerOrders">Orders</button>
-                        <button class="nav-link authorized seller" @onclick="NavigateToUserProdile">Profile</button>
+                        <button class="nav-link authorized seller" @onclick="NavigateToUserProfile">Profile</button>
                     }
                     <button class="nav-link authorized buyer" @onclick="Logout">Logout</button>
                 </Authorized>
@@ -44,6 +50,8 @@
 </header>
 
 @code {
+    private bool IsMenuOpen { get; set; } = false;
+
     protected override async Task OnInitializedAsync()
     {
         State.OnChange += StateHasChanged;
@@ -64,18 +72,22 @@
         State.OnChange -= StateHasChanged;
     }
 
+    private void ToggleMenu()
+    {
+        IsMenuOpen = !IsMenuOpen;
+    }
+
     private void NavigateToHome() => Navigation.NavigateTo("/");
     private void NavigateToBuyerDashboard() => Navigation.NavigateTo("buyer-dashboard");
     private void NavigateToSellerDashboard() => Navigation.NavigateTo("seller-dashboard");
     private void NavigateToSearch() => Navigation.NavigateTo("search");
     private void NavigateToProfile() => Navigation.NavigateTo("seller-profile");
     private void NavigateToSlots() => Navigation.NavigateTo("slots");
-    private void NavigateToOrders() => Navigation.NavigateTo("orders");
     private void NavigateToBuyerOrders() => Navigation.NavigateTo("buyer-orders");
     private void NavigateToSellerOrders() => Navigation.NavigateTo("seller-orders");
     private void NavigateToLogin() => Navigation.NavigateTo("login");
     private void NavigateToRegister() => Navigation.NavigateTo("register");
-    private void NavigateToUserProdile() => Navigation.NavigateTo("user-profile");
+    private void NavigateToUserProfile() => Navigation.NavigateTo("user-profile");
 
     private async Task Logout()
     {
