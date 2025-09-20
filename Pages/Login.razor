@@ -109,11 +109,11 @@
                     var role = await Auth2.GetUserRole();
                     if (role == "BUYER")
                     {
-                        Navigation.NavigateTo("/buyer-dashboard");
+                        Navigation.NavigateTo("buyer-dashboard");
                     }
                     else if (role == "SELLER")
                     {
-                        Navigation.NavigateTo("/seller-dashboard");
+                        Navigation.NavigateTo("seller-dashboard");
                     }
                     else
                     {
@@ -142,7 +142,7 @@
         }
     }
 
-    private void NavigateToRegister() => Navigation.NavigateTo("/register");
+    private void NavigateToRegister() => Navigation.NavigateTo("register");
 
     public class LoginResponse
     {
