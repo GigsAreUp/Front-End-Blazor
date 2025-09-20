@@ -190,7 +190,7 @@
                 if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
                 {
                     Snackbar.Add("Profile updated successfully!", Severity.Success);
-                    Nav.NavigateTo("/seller-profile", forceLoad: true);
+                    Nav.NavigateTo("seller-profile", forceLoad: true);
                 }
                 else
                 {
