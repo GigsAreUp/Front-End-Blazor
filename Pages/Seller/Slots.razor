@@ -250,7 +250,7 @@
             var response = await Http.PostAsJsonAsync("api/Seller/save-slots", AllSlots);
             if (response.IsSuccessStatusCode)
             {
-                Navigation.NavigateTo("/seller-dashboard");
+                Navigation.NavigateTo("seller-dashboard");
             }
             else
             {
