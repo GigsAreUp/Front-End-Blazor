@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @using System.ComponentModel.DataAnnotations
+@using System.Globalization
 @attribute [Authorize(Roles = "BUYER")]
 @implements IDisposable
 
@@ -244,7 +245,7 @@
                             var slot = new Slot
                             {
                                 Available = true,
-                                Date = DateTime.Parse(s.SlotDate),
+                                Date=DateTime.ParseExact(s.SlotDate, "dd-MM-yyyy", CultureInfo.InvariantCulture),
                                 Price = s.SlotPrice,
                                 Time = s.SlotTime,
                                 Id = s.SlotId
