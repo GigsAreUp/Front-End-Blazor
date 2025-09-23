@@ -24,7 +24,7 @@ namespace MusicHFE2
 {
     var client = new HttpClient
     {
-        BaseAddress = new Uri("https://8c994ef4a323.ngrok-free.app/")
+        BaseAddress = new Uri("https://c2bac200548c.ngrok-free.app/")
     };
     client.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "true");
     return client;
