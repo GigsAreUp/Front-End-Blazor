@@ -104,9 +104,11 @@
                 await JS.InvokeVoidAsync("console.log", result);
                 if (result.Success)
                 {
-                   
+
                     await Auth2.MarkUserAsAuthenticated(result.Response);
                     var role = await Auth2.GetUserRole();
+                    var user = await Auth.GetUserfromJWT(result.Response);
+                    State.SetUser(user);
                     if (role == "BUYER")
                     {
                         Navigation.NavigateTo("buyer-dashboard");

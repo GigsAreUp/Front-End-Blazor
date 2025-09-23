@@ -1,9 +1,9 @@
 ﻿:root {
     --background-color: #ffffff; /* White background */
-    --text-color: #1f2937; /* Dark gray for text */
+    --text-color: #5053AF; /* Dark gray for text */
     --accent-color: #f97316; /* Sunset orange for buttons/highlights */
     --accent-dark: #c2410c; /* Darker orange for gradients */
-    --card-background: #f3f4f6; /* Light gray for cards */
+    --card-background: #b8e2fc; /* Light gray for cards */
     --buyer-accent: #3b82f6; /* Buyer theme color (blue) */
     --buyer-accent-dark: #2563eb; /* Buyer darker accent */
     --seller-accent: #10b981; /* Seller theme color (green) */
@@ -51,119 +51,8 @@ h3 {
     margin: 0;
 }
 
-/* Header */
-The issue of the menu not rendering on mobile devices is likely due to the absence of a responsive design for the navigation menu. The provided CSS includes styles for a hamburger menu (.hamburger), but the corresponding HTML and JavaScript logic to toggle the menu's visibility on mobile devices is missing from the Razor component. Here's how you can fix this issue by implementing a responsive hamburger menu for mobile devices.
-Steps to Fix the Issue
 
-Add Hamburger Menu HTML: Include a hamburger button in the header to toggle the navigation menu on mobile devices.
-Update CSS for Mobile Responsiveness: Add media queries to hide the navigation menu on smaller screens and show it when the hamburger menu is active.
-Add Toggle Logic in Code: Implement logic to toggle the hamburger menu's state and show/hide the navigation menu.
-Ensure Proper Styling: Adjust the CSS to handle the mobile menu's appearance and transitions.
-
-Updated Code
-Below is the modified Razor component and CSS to implement a responsive hamburger menu.
-Updated Razor Component (Header.razor)
-razor@using Microsoft.AspNetCore.Components.Authorization
-@inject StateService State
-@inject AuthService Auth
-@inject JwtAuthStateProvider Auth2
-@inject NavigationManager Navigation
-@implements IDisposable
-
-<header class="header" >
-<div class="container" >
-<div class="logo" @onclick="NavigateToHome" >
-<img src="images/1758095727144.jpg"
-alt="Logo"
-class="logo-image" / >
-<h2 class="logo-text" > Local Gigster</h2 >
-</div >
-
-<button class="hamburger" @onclick="ToggleMenu" >
-<span > </span >
-<span > </span >
-<span > </span >
-</button >
-
-<nav class="nav @(IsMenuOpen ? "active" : "")" >
-<AuthorizeView >
-<Authorized >
-@if (context.User?.IsInRole("BUYER") == true) {
-    <button class="nav-link authorized buyer" @onclick="NavigateToBuyerDashboard">Dashboard</button> <button class="nav-link authorized buyer" @onclick="NavigateToSearch">Search</button> <button class="nav-link authorized buyer" @onclick="NavigateToBuyerOrders">Orders</button> <button class="nav-link authorized buyer" @onclick="NavigateToUserProfile">Profile</button>
-}
-
-else if (context.User?.IsInRole("SELLER") == true) {
-    <button class="nav-link authorized seller" @onclick="NavigateToSellerDashboard">Dashboard</button> <button class="nav-link authorized seller" @onclick="NavigateToProfile">Tags</button> <button class="nav-link authorized seller" @onclick="NavigateToSlots">Slots</button> <button class="nav-link authorized seller" @onclick="NavigateToSellerOrders">Orders</button> <button class="nav-link authorized seller" @onclick="NavigateToUserProfile">Profile</button>
-}
-
-<button class="nav-link authorized buyer" @onclick="Logout" > Logout</button >
-</Authorized >
-<NotAuthorized >
-<button class="nav-link" @onclick="NavigateToLogin" > Login</button >
-<button class="nav-link" @onclick="NavigateToRegister" > Register</button >
-</NotAuthorized >
-</AuthorizeView >
-</nav >
-</div >
-</header >
-
-@code {
-    private bool IsMenuOpen
-
-{
-    get;
-    set;
-}
-
-= false;
-
-protected override async Task OnInitializedAsync() {
-    State .OnChange += StateHasChanged;
-    if (State.User == null)
-
-{
-    var tokenValid = await Auth.IsTokenValidAsync();
-    if (tokenValid)
-
-{
-    var token = await Auth.GetTokenAsync();
-    State .SetUser(await Auth.GetUserfromJWT(token));
-}
-
-}
-}
-
-public void Dispose() {
-    State .OnChange -= StateHasChanged;
-}
-
-private void ToggleMenu() {
-    IsMenuOpen = !IsMenuOpen;
-}
-
-private void NavigateToHome() = > Navigation.NavigateTo("/");
-private void NavigateToBuyerDashboard() = > Navigation.NavigateTo("buyer-dashboard");
-private void NavigateToSellerDashboard() = > Navigation.NavigateTo("seller-dashboard");
-private void NavigateToSearch() = > Navigation.NavigateTo("search");
-private void NavigateToProfile() = > Navigation.NavigateTo("seller-profile");
-private void NavigateToSlots() = > Navigation.NavigateTo("slots");
-private void NavigateToBuyerOrders() = > Navigation.NavigateTo("buyer-orders");
-private void NavigateToSellerOrders() = > Navigation.NavigateTo("seller-orders");
-private void NavigateToLogin() = > Navigation.NavigateTo("login");
-private void NavigateToRegister() = > Navigation.NavigateTo("register");
-private void NavigateToUserProfile() = > Navigation.NavigateTo("user-profile");
-
-private async Task Logout() {
-    await Auth2.MarkUserAsLoggedOut();
-    State .SetUser(null);
-    Navigation .NavigateTo("login");
-}
-
-}
-
-Updated CSS
-Add the following media queries and styles to your existing CSS to make the navigation menu responsive and toggleable on mobile devices. Replace or append to your existing CSS:
-css.header {
+.header {
     background: rgba(0, 0, 0, 0.05);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -474,6 +363,7 @@ css.header {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     margin: 0 1rem;
     animation: slideIn 0.5s ease-out;
+    background-color: var(--card-background);
 }
 
     .welcome-banner h2 {

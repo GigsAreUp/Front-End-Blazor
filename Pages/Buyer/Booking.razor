@@ -129,6 +129,46 @@
         State.OnChange -= StateHasChanged;
     }
 
+    // private async Task HandleBooking()
+    // {
+    //     isProcessing = true;
+    //     errorMessage = string.Empty;
+
+    //     try
+    //     {
+    //         var response = await Http.GetAsync($"api/Booking/trigger-booking?bookingId={bookingid}");
+
+    //         if (response.IsSuccessStatusCode)
+    //         {
+    //             var result = await response.Content.ReadFromJsonAsync<BookingResponse>();
+
+    //             if (result != null && result.Success)
+    //             {
+    //                 orderId = result.OrderId;
+    //                 amount = SlotDetails.Price + SlotDetails.ExtraAmount;
+    //                 razorPayKey = result.RazorPayKey;
+    //                 showRazorPay = true;
+    //             }
+    //             else
+    //             {
+    //                 errorMessage = result?.Errors != null ? string.Join(", ", result.Errors) : "Failed to create booking";
+    //             }
+    //         }
+    //         else
+    //         {
+    //             errorMessage = $"Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}";
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         errorMessage = $"Failed to process booking: {ex.Message}";
+    //     }
+    //     finally
+    //     {
+    //         isProcessing = false;
+    //         StateHasChanged();
+    //     }
+    // }
     private async Task HandleBooking()
     {
         isProcessing = true;
@@ -136,23 +176,11 @@
 
         try
         {
-            var response = await Http.GetAsync($"api/Booking/trigger-booking?bookingId={bookingid}");
+            var response = await Http.GetAsync($"api/Booking/trigger-booking2?bookingId={bookingid}");
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<BookingResponse>();
-
-                if (result != null && result.Success)
-                {
-                    orderId = result.OrderId;
-                    amount = SlotDetails.Price + SlotDetails.ExtraAmount;
-                    razorPayKey = result.RazorPayKey;
-                    showRazorPay = true;
-                }
-                else
-                {
-                    errorMessage = result?.Errors != null ? string.Join(", ", result.Errors) : "Failed to create booking";
-                }
+                Navigation.NavigateTo("booking-success");
             }
             else
             {

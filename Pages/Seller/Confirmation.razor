@@ -190,7 +190,7 @@
     {
         try
         {
-            var response = await Http.PostAsJsonAsync("api/Seller/update-pending-confirmation-slots", SlotDetails);
+            var response = await Http.PostAsJsonAsync("api/Seller/update-pending-confirmation-slots2", SlotDetails);
             if (response.IsSuccessStatusCode)
             {
                 Navigation.NavigateTo("seller-dashboard");

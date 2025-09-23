@@ -51,16 +51,48 @@
                           InputType="InputType.Number"
                           Format="F2"
                           Required="true"
-                          RequiredError="Price is required"
-                          Class="form-group" />
+                          RequiredError="Price is required" />
+            <MudSwitch T="bool" Immediate="true" Label="Includes Food"
+                       Value="@bulkSlotModel.IncludesFood"
+                       ValueChanged="val => OnSwitchChanged(nameof(bulkSlotModel.IncludesFood), val)" />
+
+            <MudSwitch T="bool" Immediate="true" Label="Includes Drinks"
+                       Value="@bulkSlotModel.IncludesDrinks"
+                       ValueChanged="val => OnSwitchChanged(nameof(bulkSlotModel.IncludesDrinks), val)" />
+
+            <MudSwitch T="bool" Immediate="true" Label="Includes Equipment"
+                       Value="@bulkSlotModel.IncludesEquipment"
+                       ValueChanged="val => OnSwitchChanged(nameof(bulkSlotModel.IncludesEquipment), val)" />
+            <MudSwitch T="bool" Immediate="true"
+                       Label="@(bulkSlotModel.VenueType)"
+                       Value="@(bulkSlotModel.VenueType == "Outdoor")"
+                       ValueChanged="val => OnVenueChanged(val)" />
+
+
+           @*  <MudRadioGroup T="string"
+                               Required="true"
+                               RequiredError="Venue type is required"
+                               Class="radio-group"
+                               ValueChanged="OnVenueTypeChanged">
+                    <MudText Typo="Typo.body1" Class="mud-input-label">Choose Venue Type</MudText>
+                    @foreach (var option in new[] { "Outdoor", "Indoor" })
+                    {
+                        <MudRadio T="string" Option="@option" Color="Color.Primary">@option</MudRadio>
+                    }
+                </MudRadioGroup> *@
             <MudButton ButtonType="ButtonType.Submit"
                        Variant="Variant.Filled"
                        Color="Color.Primary"
                        Class="full-width mt-2">
                 Add Bulk Slots
             </MudButton>
+           
         </EditForm>
     </div>
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">@errorMessage</div>
+    }
 
     <!-- Loading Spinner -->
     <div class="loading-spinner @(_isLoading ? "active" : "")"></div>
@@ -78,6 +110,34 @@
                 <div class="slot-item">
                     <p>@slot.SlotDate @slot.SlotTime</p>
                     <p>₹@slot.SlotPrice</p>
+                    <p>
+                        <strong>Venue Type:</strong> @slot.VenueType
+                    </p>
+                    <p>
+                        <strong>Includes:</strong>
+                        @if (slot.IncludesFood)
+                        {
+                            <span>Food</span>
+                            <br />
+                            ;
+                        }
+                        @if (slot.IncludesDrinks)
+                        {
+                            <span>Drinks</span>
+                            <br />
+                            ;
+                        }
+                        @if (slot.IncludesEquipment)
+                        {
+                            <span>Equipment</span>
+                            <br />
+                            ;
+                        }
+                        @if (!slot.IncludesFood && !slot.IncludesDrinks && !slot.IncludesEquipment)
+                        {
+                            <span>None</span>
+                        }
+                    </p>
                     <span class="availability @(slot.SlotStatus == "Open" ? "available" : "booked")">
                         @(slot.SlotStatus == "Open" ? "Available" : "Booked")
                     </span>
@@ -85,16 +145,14 @@
                     {
                         <button class="btn-danger btn-sm" @onclick="() => DeleteSlot(slot.SlotId)">Delete</button>
                     }
+                    <p> </p>
                 </div>
             }
         }
     </div>
     <button class="btn-primary seller large" @onclick="SaveSlots">Save Slots</button>
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="error-message">@errorMessage</div>
-    }
+   
 </div>
 
 @code {
@@ -135,6 +193,10 @@
                         SlotPrice = s.SlotPrice,
                         SlotTime = s.SlotTime,
                         SlotId = s.SlotId,
+                        IncludesDrinks=s.IncludesDrinks,
+                        IncludesEquipment=s.IncludesEquipment,
+                        IncludesFood=s.IncludesFood,
+                        VenueType=s.VenueType,
                         IsNew = false
                     };
                     AllSlots.Add(slot);
@@ -155,6 +217,27 @@
             StateHasChanged();
         }
     }
+    private void OnSwitchChanged(string property, bool value)
+    {
+        switch (property)
+        {
+            case nameof(BulkSlotModel.IncludesFood):
+                bulkSlotModel.IncludesFood = value;
+                break;
+            case nameof(BulkSlotModel.IncludesDrinks):
+                bulkSlotModel.IncludesDrinks = value;
+                break;
+            case nameof(BulkSlotModel.IncludesEquipment):
+                bulkSlotModel.IncludesEquipment = value;
+                break;
+        }
+    }
+   
+    private void OnVenueChanged(bool isOutdoor)
+    {
+        bulkSlotModel.VenueType = isOutdoor ? "Outdoor" : "Indoor";
+    }
+
 
     private async Task AddBulkSlots()
     {
@@ -166,10 +249,15 @@
             var matchingSlots = AllSlots.Where(s => s.SlotDate == startDateString).ToList();
             if (matchingSlots.Any())
             {
-                var exactMatch = matchingSlots.Any(m => bulkSlotModel.Times.Contains(m.SlotTime));
+                var exactMatch = matchingSlots.Any(m => bulkSlotModel.Times.Contains(m.SlotTime) && 
+                bulkSlotModel.IncludesFood==m.IncludesFood && 
+                bulkSlotModel.IncludesDrinks==m.IncludesDrinks &&
+                bulkSlotModel.IncludesEquipment==m.IncludesEquipment &&
+                (String.Compare(bulkSlotModel.VenueType,m.VenueType,true)==0));
                 if (exactMatch)
                 {
-                    errorMessage = "Slot with that date and time already exists";
+
+                    errorMessage = "Slot with those properties already exists";
                     _isLoading = false;
                     StateHasChanged();
                     return;
@@ -178,7 +266,7 @@
 
             var newSlots = new List<SlotRequest>();
             var currentDate = bulkSlotModel.StartDate;
-
+            await JS.InvokeVoidAsync("console.log", bulkSlotModel);
             foreach (var time in bulkSlotModel.Times)
             {
                 newSlots.Add(new SlotRequest
@@ -188,6 +276,10 @@
                     SlotTime = time,
                     SlotPrice = bulkSlotModel.Price,
                     SlotStatus = "Open",
+                    IncludesDrinks=bulkSlotModel.IncludesDrinks,
+                    IncludesEquipment = bulkSlotModel.IncludesEquipment,
+                    IncludesFood=bulkSlotModel.IncludesFood,
+                    VenueType=bulkSlotModel.VenueType,
                     IsNew = true
                 });
             }
@@ -268,7 +360,7 @@
         }
     }
 
-    private class BulkSlotModel
+    public class BulkSlotModel
     {
         [Required(ErrorMessage = "Date is required")]
         public DateTime? StartDate { get; set; }
@@ -279,6 +371,15 @@
         [Required(ErrorMessage = "Price is required")]
         [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
         public decimal Price { get; set; } = 50;
+        [Required(ErrorMessage = "Equipment mode is required")]
+        public bool IncludesEquipment { get; set; }
+        [Required(ErrorMessage = "Food option is required")]
+        public bool IncludesFood { get; set; }
+        [Required(ErrorMessage = "Drinks option is required")]
+        public bool IncludesDrinks { get; set; }
+        [Required(ErrorMessage = "Venue Type is Required")]
+
+        public string VenueType { get; set; }
     }
 
     public class SlotResponse
@@ -288,6 +389,10 @@
         public string SlotTime { get; set; }
         public decimal SlotPrice { get; set; }
         public string SlotStatus { get; set; }
+        public bool IncludesEquipment { get; set; }
+        public bool IncludesFood { get; set; }
+        public bool IncludesDrinks { get; set; }
+        public string VenueType { get; set; }
     }
 
     public class SlotRequest
@@ -298,5 +403,9 @@
         public decimal SlotPrice { get; set; }
         public string SlotStatus { get; set; }
         public bool IsNew { get; set; }
+        public bool IncludesEquipment { get; set; }
+        public bool IncludesFood { get; set; }
+        public bool IncludesDrinks { get; set; }
+        public string VenueType { get; set; }
     }
 }
