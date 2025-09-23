@@ -77,6 +77,31 @@
                             <div class="slot-item">
                                 <MudText>@slot.Date.ToString("yyyy-MM-dd") @slot.Time</MudText>
                                 <MudText>₹@slot.Price</MudText>
+                                @if(slot.IncludesDrinks)
+                                {
+                                    <MudText>🍻 Seller Drinks Included</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Seller buys his own drinks</MudText>
+                                }
+                                @if (slot.IncludesFood)
+                                {
+                                    <MudText>Seller Food Included</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Seller buys his own food</MudText>
+                                }
+                                @if (slot.IncludesEquipment)
+                                {
+                                    <MudText>Equipment already present for Seller</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Seller brings his own equipment</MudText>
+                                }
+                                <MudText>@slot.VenueType</MudText>
                                 <MudButton Variant="Variant.Filled"
                                            Color="Color.Primary"
                                            Class="btn-primary seller full-width"
@@ -130,6 +155,10 @@
         public string Time { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public bool Available { get; set; }
+        public bool IncludesFood { get; set; }
+        public bool IncludesDrinks { get; set; }
+        public bool IncludesEquipment { get; set; }
+        public string VenueType { get; set; }
     }
 
     protected override async Task OnInitializedAsync()
@@ -248,7 +277,11 @@
                                 Date=DateTime.ParseExact(s.SlotDate, "dd-MM-yyyy", CultureInfo.InvariantCulture),
                                 Price = s.SlotPrice,
                                 Time = s.SlotTime,
-                                Id = s.SlotId
+                                Id = s.SlotId,
+                                IncludesDrinks=s.IncludesDrinks,
+                                IncludesEquipment=s.IncludesEquipment,
+                                IncludesFood=s.IncludesFood,
+                                VenueType=s.VenueType
                             };
                             seller.Slots.Add(slot);
                         }
@@ -316,6 +349,10 @@
         public Guid SlotId { get; set; }
         public string SlotTime { get; set; } = string.Empty;
         public decimal SlotPrice { get; set; }
+        public bool IncludesFood { get; set; }
+        public bool IncludesDrinks { get; set; }
+        public bool IncludesEquipment { get; set; }
+        public string VenueType { get; set; }
     }
 
     public class SellerSearchRequest
