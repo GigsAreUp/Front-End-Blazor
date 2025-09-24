@@ -1,0 +1,185 @@
+﻿@page "/admin-dashboard"
+@using System.Globalization
+@inject HttpClient Http
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="py-6">
+    <!-- Key Metrics Cards -->
+    <MudGrid GutterSize="2" Justify="Justify.FlexStart" AlignItems="AlignItems.Stretch" Class="flex-nowrap">
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">Total Users</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Primary">@Model?.TotalUsers</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Model?.NewUsersThisMonth new this month</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">Revenue This Month</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Success">@Model?.RevenueThisMonth.ToString("C", new CultureInfo("en-IN"))</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Model?.TotalPlatformRevenue.ToString("C", new CultureInfo("en-IN")) total</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">Pending Payouts</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Warning">@Model?.PendingPayouts.ToString("C", new CultureInfo("en-IN"))</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Model?.TotalCommissionEarned.ToString("C", new CultureInfo("en-IN")) total commission</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">Slot Statistics</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Secondary">@Model?.ActiveSlots active</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Model?.BookedSlots booked • @Model?.CompletedSlots completed</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">Performance Metrics</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Info">@Model?.BookingConversionRate.ToString("P1")</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Conversion rate • @Model?.AverageTransactionValue.ToString("C", new CultureInfo("en-IN")) avg. transaction</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4 rounded-lg shadow-sm" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-2">User Distribution</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Tertiary">@Model?.TotalBuyers buyers</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Model?.TotalSellers sellers</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Top Sellers -->
+    <MudPaper Class="pa-4 rounded-lg shadow-sm mt-6">
+        <MudText Typo="Typo.h6" Class="mb-4">Top Sellers</MudText>
+        <MudTable Items="Model?.TopSellers" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Total Earnings</MudTh>
+                <MudTh>Completed Shows</MudTh>
+                <MudTh>Rating</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.SellerName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Earnings">@context.TotalEarnings.ToString("C", new CultureInfo("en-IN"))</MudTd>
+                <MudTd DataLabel="Shows">@context.CompletedShows</MudTd>
+                <MudTd DataLabel="Rating">
+                    <MudRating ReadOnly="true" Value="@context.Rating" Size="Size.Small" />
+                    <MudText Typo="Typo.caption" Class="ml-1">(@context.Rating.ToString("F1"))</MudText>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">No sellers found</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+
+    <!-- Recent Transactions -->
+    <MudPaper Class="pa-4 rounded-lg shadow-sm mt-6">
+        <MudText Typo="Typo.h6" Class="mb-4">Recent Transactions</MudText>
+        <MudTable Items="Model?.RecentTransactions" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Transaction Id</MudTh>
+                <MudTh>Buyer</MudTh>
+                <MudTh>Amount</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Id">
+                    <MudText Typo="Typo.caption">@context.TransactionId.ToString().Substring(0, 8)...</MudText>
+                </MudTd>
+                <MudTd DataLabel="Buyer">@context.BuyerName</MudTd>
+                <MudTd DataLabel="Amount">@context.Amount.ToString("C", new CultureInfo("en-IN"))</MudTd>
+                <MudTd DataLabel="Date">@context.Date</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">No transactions found</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+
+    <!-- Errors -->
+    @if (Model?.Errors?.Count > 0)
+    {
+        <MudPaper Class="pa-4 rounded-lg mt-6" Color="Color.Warning">
+            <MudText Typo="Typo.h6" Color="Color.Warning">Errors</MudText>
+            @foreach (var error in Model.Errors)
+            {
+                <MudText>@error</MudText>
+            }
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private AdminDashboardResponse? Model;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Model = await Http.GetFromJsonAsync<AdminDashboardResponse>("api/Dashboard/admin-dashboard");
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "completed" => Color.Success,
+            "pending" => Color.Warning,
+            "failed" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    public class AdminDashboardResponse
+    {
+        public int TotalUsers { get; set; }
+        public int TotalSellers { get; set; }
+        public int TotalBuyers { get; set; }
+        public int NewUsersThisMonth { get; set; }
+
+        public decimal TotalPlatformRevenue { get; set; }
+        public decimal RevenueThisMonth { get; set; }
+        public decimal PendingPayouts { get; set; }
+        public decimal TotalCommissionEarned { get; set; }
+
+        public int TotalSlotsCreated { get; set; }
+        public int ActiveSlots { get; set; }
+        public int BookedSlots { get; set; }
+        public int CompletedSlots { get; set; }
+        public int PendingConfirmations { get; set; }
+        public int RecentBookings { get; set; }
+
+        public decimal BookingConversionRate { get; set; }
+        public decimal AverageTransactionValue { get; set; }
+
+        public List<TopSellerResponse> TopSellers { get; set; } = new();
+        public List<RecentTransactionResponse> RecentTransactions { get; set; } = new();
+        public List<string> Errors { get; set; } = new();
+    }
+
+    public class TopSellerResponse
+    {
+        public string SellerName { get; set; }
+        public string Email { get; set; }
+        public decimal TotalEarnings { get; set; }
+        public int CompletedShows { get; set; }
+        public double Rating { get; set; }
+    }
+
+    public class RecentTransactionResponse
+    {
+        public Guid TransactionId { get; set; }
+        public string BuyerName { get; set; }
+        public decimal Amount { get; set; }
+        public string Date { get; set; }
+        public string Status { get; set; }
+    }
+}
